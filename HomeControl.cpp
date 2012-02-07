@@ -328,7 +328,7 @@ void HomeControlServer::handleEvents()
 
     if(radio)
     {
-    	HCRadioResult result = HCRadio::get_result();
+    	HCRadioResult &result = HCRadio::get_result();
     	if(result.is_ready())
     	{
     		event_server->println(result.get_json());
