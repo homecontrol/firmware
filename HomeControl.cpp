@@ -1,16 +1,11 @@
 #include "HomeControl.h"
 #include "HCTCPUtils.h"
-#include "HCRFTransmit.h"
 
 #define MAX_REQUEST_SIZE  128
 
-// TODO: This should be configurable
-#define RF_PULSE_LENGTH   325
-#define RF_REPEAT          10
-
 HomeControlServer::HomeControlServer()
 : command_server(NULL), event_server(NULL),
-  irsend(NULL), irrecv(NULL), rf_out_pin(-1)
+  irsend(NULL), irrecv(NULL), radio(NULL)
 {}
 
 HomeControlServer::~HomeControlServer()
@@ -19,6 +14,7 @@ HomeControlServer::~HomeControlServer()
     delete irsend;
     delete event_server;
     delete command_server;
+    delete radio;
 }
 
 void HomeControlServer::startCommandServer(int port)
@@ -48,11 +44,25 @@ void HomeControlServer::enableIROut()
     irsend = new IRsend();
 }
 
-void HomeControlServer::enableRFOut(int pin)
+void HomeControlServer::enableRFOut(int send_pin, int status_pin)
 {
-    pinMode(pin, OUTPUT);
-    digitalWrite(pin, LOW);
-    rf_out_pin = pin;
+	if(!radio)
+		radio = new HCRadio();
+
+	radio->enable_send(send_pin);
+
+	if(status_pin != -1)
+		radio->enable_status(status_pin);
+}
+
+void HomeControlServer::enableRFIn()
+{
+	if(!radio)
+		radio = new HCRadio();
+
+	// Interrupt 0 is attached to PIN 2,
+	// see http://arduino.cc/it/Reference/AttachInterrupt
+	radio->enable_receive(0);
 }
 
 void HomeControlServer::enableDigitalOut(int pin)
@@ -87,6 +97,58 @@ bool HomeControlServer::handleIRNECRequest(EthernetClient& client, HCHTTPRequest
     }
 
     sendHTTPResponse(client, "Usage: /ir-nec/<bistring>/<nbits>", true);
+    return false;
+}
+
+bool HomeControlServer::handleIRRawRequest(EthernetClient& client, HCHTTPRequest& req)
+{
+    if (req.path[1] && req.path[2] && !req.path[3])
+    {
+    	/*
+        bool invalid_chars = false;
+        char* c = req.path[1];
+        while (*c)
+        {
+            if (*c != '1' && *c != '0' && *c != 'f' && *c != 'F')
+            {
+                invalid_chars = true;
+                break;
+            }
+            c += 1;
+        }
+
+        if (!invalid_chars)
+        {
+            noInterrupts();
+            for (int i=0; i<RF_REPEAT; ++i)
+            {
+                c = req.path[1];
+                while (*c)
+                {
+                    if (*c == '0')
+                        send_0(rf_out_pin, RF_PULSE_LENGTH);
+                    else if (*c == '1')
+                        send_1(rf_out_pin, RF_PULSE_LENGTH);
+                    else
+                        send_F(rf_out_pin, RF_PULSE_LENGTH);
+                    c += 1;
+                }
+                sync(rf_out_pin, RF_PULSE_LENGTH);
+            }
+            interrupts();
+
+            sendHTTPResponse(client, "OK");
+            return true;
+        }
+        else
+        {
+            sendHTTPResponse(client, "Invalid character: Only '0', '1', and 'F' allowed", true);
+            return false;
+        }*/
+    }
+
+    sendHTTPResponse(client, "Usage: /ir-raw/<khz>/<rawcode>\n"
+    						 "Example: /ir-raw/38/400.500.200, starting with IR mark", true);
     return false;
 }
 
@@ -148,44 +210,20 @@ bool HomeControlServer::handleAnalogInRequest(EthernetClient& client, HCHTTPRequ
     return false;
 }
 
-
 bool HomeControlServer::handleRFBinaryRequest(EthernetClient& client, HCHTTPRequest& req)
 {
+	// TODO: RF status LED.
+	pinMode(9, OUTPUT);
+
+	// Get pulse length if given
+	if(req.path[2])
+		this->radio->set_pulse_length(atoi(req.path[2]));
+
     // TODO: Handle the case when RF is deactivated
-    if (req.path[1] && !req.path[2])
+    if (req.path[1])
     {
-        bool invalid_chars = false;
-        char* c = req.path[1];
-        while (*c)
-        {
-            if (*c != '1' && *c != '0' && *c != 'f' && *c != 'F')
-            {
-                invalid_chars = true;
-                break;
-            }
-            c += 1;
-        }
-
-        if (!invalid_chars)
-        {
-            noInterrupts();
-            for (int i=0; i<RF_REPEAT; ++i)
-            {
-                c = req.path[1];
-                while (*c)
-                {
-                    if (*c == '0')
-                        send_0(rf_out_pin, RF_PULSE_LENGTH);
-                    else if (*c == '1')
-                        send_1(rf_out_pin, RF_PULSE_LENGTH);
-                    else
-                        send_F(rf_out_pin, RF_PULSE_LENGTH);
-                    c += 1;
-                }
-                sync(rf_out_pin, RF_PULSE_LENGTH);
-            }
-            interrupts();
-
+    	if(this->radio->send_tristate(req.path[1]))
+    	{
             sendHTTPResponse(client, "OK");
             return true;
         }
@@ -196,10 +234,9 @@ bool HomeControlServer::handleRFBinaryRequest(EthernetClient& client, HCHTTPRequ
         }
     }
 
-    sendHTTPResponse(client, "Usage: /rf-binary/<bistring>", true);
+    sendHTTPResponse(client, "Usage: /rf-binary/<bistring>[/<pulse length>]", true);
     return false;
 }
-
 
 bool HomeControlServer::handleHTTPRequest(EthernetClient& client)
 {
@@ -212,6 +249,8 @@ bool HomeControlServer::handleHTTPRequest(EthernetClient& client)
 
         if (req.path[0])
         {
+        	if (strcmp(req.path[0], "ir-raw") == 0)
+        		return handleIRRawRequest(client, req);
             if (strcmp(req.path[0], "ir-nec") == 0)
                 return handleIRNECRequest(client, req);
             if (strcmp(req.path[0], "rf-binary") == 0)
@@ -286,6 +325,16 @@ void HomeControlServer::handleEvents()
             }
         }
     }
+
+    if(radio)
+    {
+    	HCRadioResult result = HCRadio::get_result();
+    	if(result.is_ready())
+    	{
+    		event_server->println(result.get_json());
+    		result.clear();
+    	}
+    }
 }
 
 // Implement new/delete ourselves since arduino does not provide them
@@ -296,5 +345,5 @@ void* operator new(size_t size)
 
 void operator delete(void * ptr)
 {
-    free(ptr);
+	free(ptr);
 }

@@ -4,6 +4,7 @@
 #include <Ethernet.h>
 // TODO: This is somwhat ugly...
 #include "../IRremote/IRremote.h"
+#include "../HCRadio/HCRadio.h"
 #include "HCHTTPRequest.h"
 
 #if !defined(ARDUINO) || ARDUINO < 100
@@ -23,7 +24,8 @@ class HomeControlServer
         void enableIRIn(int pin);
         void enableIROut(/* pin == 3 */);
 
-        void enableRFOut(int pin);
+        void enableRFOut(int send_pin, int status_pin = -1);
+        void enableRFIn();
 
         void enableDigitalOut(int pin);
         void enableDigitalIn(int pin);
@@ -33,6 +35,7 @@ class HomeControlServer
         void handleEvents();
 
     private:
+        bool handleIRRawRequest     (EthernetClient& client, HCHTTPRequest& request);
         bool handleIRNECRequest     (EthernetClient& client, HCHTTPRequest& request);
         bool handleRFBinaryRequest  (EthernetClient& client, HCHTTPRequest& request);
         bool handleDigitalOutRequest(EthernetClient& client, HCHTTPRequest& request);
@@ -45,6 +48,7 @@ class HomeControlServer
         EthernetServer* event_server;
         IRsend*         irsend;
         IRrecv*         irrecv;
+        HCRadio*		radio;
         int             rf_out_pin;
 };
 
