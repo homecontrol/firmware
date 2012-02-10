@@ -324,16 +324,13 @@ void HomeControlServer::handleEvents()
                 event_server->print("");
             }
         }
-    }
 
-    if(radio)
-    {
-    	HCRadioResult &result = HCRadio::get_result();
-    	if(result.is_ready())
-    	{
-    		event_server->println(result.get_json());
-    		result.clear();
-    	}
+        if(radio)
+        {
+        	HCRadioResult result = HCRadio::get_result();
+        	if(result.is_ready())
+        		event_server->println(result.get_json());
+        }
     }
 }
 
