@@ -100,55 +100,70 @@ bool HomeControlServer::handleIRNECRequest(EthernetClient& client, HCHTTPRequest
     return false;
 }
 
-bool HomeControlServer::handleIRRawRequest(EthernetClient& client, HCHTTPRequest& req)
+unsigned int HomeControlServer::explode(char* data, 
+                                        unsigned int* timings, 
+                                        unsigned int max_len,
+                                        char delimiter = '.')
 {
-    if (req.path[1] && req.path[2] && !req.path[3])
+    unsigned int j = 0;
+    timings[0] = 0;
+
+    for(unsigned int i = 0; i < max_len; i ++)
     {
-    	/*
-        bool invalid_chars = false;
-        char* c = req.path[1];
-        while (*c)
+        if(data[i] == '\0')
+            break;
+
+        if(data[i] == delimiter)
         {
-            if (*c != '1' && *c != '0' && *c != 'f' && *c != 'F')
-            {
-                invalid_chars = true;
-                break;
-            }
-            c += 1;
+            j ++;
+            
+            if(j == max_len) 
+                return j;
+
+            timings[j] = 0;
         }
 
-        if (!invalid_chars)
-        {
-            noInterrupts();
-            for (int i=0; i<RF_REPEAT; ++i)
-            {
-                c = req.path[1];
-                while (*c)
-                {
-                    if (*c == '0')
-                        send_0(rf_out_pin, RF_PULSE_LENGTH);
-                    else if (*c == '1')
-                        send_1(rf_out_pin, RF_PULSE_LENGTH);
-                    else
-                        send_F(rf_out_pin, RF_PULSE_LENGTH);
-                    c += 1;
-                }
-                sync(rf_out_pin, RF_PULSE_LENGTH);
-            }
-            interrupts();
-
-            sendHTTPResponse(client, "OK");
-            return true;
-        }
-        else
-        {
-            sendHTTPResponse(client, "Invalid character: Only '0', '1', and 'F' allowed", true);
-            return false;
-        }*/
+        char c = data[i];
+        cout << "timings[" << j << "] = 10 * " << timings[j] << " + " << atoi(&c) << endl;
+        timings[j] = 10 * timings[j] + atoi(&c);
     }
 
-    sendHTTPResponse(client, "Usage: /ir-raw/<khz>/<rawcode>\n"
-    						 "Example: /ir-raw/38/400.500.200, starting with IR mark", true);
+    return j + 1;
+}
+
+bool HomeControlServer::handleIRRawRequest(EthernetClient& client, HCHTTPRequest& req)
+{
+    if(!irsend)
+    {
+        sendHTTPResponse(client, "IR is disabled");
+        return false;
+    }
+
+    
+    if(req.path[2]) irsend.enableIROut(atoi(req.path[2]));
+    else irsend.enableIROut(IR_DEFAULT_KHZ);
+
+    if (req.path[1])
+    {
+        unsigned int timings[RAWBUF];
+        unsigned int len = explode(req.path[1], timings, RAWBUF);
+
+        cli();
+        for(int i = 0; i < len; i ++)
+        {
+            if((i % 2) == 0) irsend.mark(timings[i]);
+            else irsend.space(timings[i]);
+        }
+
+        irsend.space(0); // Make sure IR LED is off.
+        sei();
+
+        sendHTTPResponse(client, "OK");
+        return true;
+    }
+
+    sendHTTPResponse(client, "Usage: /ir-raw/<rawcode>[<khz>]\n"
+    						 "Example: /ir-raw/400.500.200, starting with IR mark", true);
     return false;
 }
 
@@ -212,17 +227,19 @@ bool HomeControlServer::handleAnalogInRequest(EthernetClient& client, HCHTTPRequ
 
 bool HomeControlServer::handleRFBinaryRequest(EthernetClient& client, HCHTTPRequest& req)
 {
-	// TODO: RF status LED.
-	pinMode(9, OUTPUT);
+    if(!radio)
+    {
+        sendHTTPResponse(client, "RF is disabled");
+        return false;
+    }
 
 	// Get pulse length if given
 	if(req.path[2])
-		this->radio->set_pulse_length(atoi(req.path[2]));
+		radio->set_pulse_length(atoi(req.path[2]));
 
-    // TODO: Handle the case when RF is deactivated
     if (req.path[1])
     {
-    	if(this->radio->send_tristate(req.path[1]))
+    	if(radio->send_tristate(req.path[1]))
     	{
             sendHTTPResponse(client, "OK");
             return true;

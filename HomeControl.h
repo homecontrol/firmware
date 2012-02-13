@@ -12,6 +12,8 @@
 #define EthernetServer Server
 #endif
 
+#define IR_DEFAULT_KHZ 38
+
 class HomeControlServer
 {
     public:
@@ -43,6 +45,11 @@ class HomeControlServer
         bool handleAnalogInRequest  (EthernetClient& client, HCHTTPRequest& request);
 
         bool handleHTTPRequest(EthernetClient& client);
+
+        unsigned int explode(char* data, 
+                             unsigned int* timings, 
+                             unsigned int max_len,
+                             char delimiter = '.')
 
         EthernetServer* command_server;
         EthernetServer* event_server;
