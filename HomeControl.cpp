@@ -361,7 +361,7 @@ void HomeControlServer::handleEvents()
         			for(unsigned int i = 0; i < result.len_timings; i ++)
         			{
         				event_server->print(", \"");
-        				event_server->print(result.timings[0], DEC);
+        				event_server->print(result.timings[i], DEC);
         				event_server->print("\"");
         			}
 
