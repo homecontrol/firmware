@@ -100,10 +100,10 @@ bool HomeControlServer::handleIRNECRequest(EthernetClient& client, HCHTTPRequest
     return false;
 }
 
-unsigned int HomeControlServer::explode(char* data, 
-                                        unsigned int* timings, 
+unsigned int HomeControlServer::explode(char* data,
+                                        unsigned int* timings,
                                         unsigned int max_len,
-                                        char delimiter = '.')
+                                        char delimiter)
 {
     unsigned int j = 0;
     timings[0] = 0;
@@ -116,15 +116,14 @@ unsigned int HomeControlServer::explode(char* data,
         if(data[i] == delimiter)
         {
             j ++;
-            
-            if(j == max_len) 
+
+            if(j == max_len)
                 return j;
 
             timings[j] = 0;
         }
 
         char c = data[i];
-        cout << "timings[" << j << "] = 10 * " << timings[j] << " + " << atoi(&c) << endl;
         timings[j] = 10 * timings[j] + atoi(&c);
     }
 
@@ -139,9 +138,9 @@ bool HomeControlServer::handleIRRawRequest(EthernetClient& client, HCHTTPRequest
         return false;
     }
 
-    
-    if(req.path[2]) irsend.enableIROut(atoi(req.path[2]));
-    else irsend.enableIROut(IR_DEFAULT_KHZ);
+
+    if(req.path[2]) irsend->enableIROut(atoi(req.path[2]));
+    else irsend->enableIROut(IR_DEFAULT_KHZ);
 
     if (req.path[1])
     {
@@ -149,13 +148,13 @@ bool HomeControlServer::handleIRRawRequest(EthernetClient& client, HCHTTPRequest
         unsigned int len = explode(req.path[1], timings, RAWBUF);
 
         cli();
-        for(int i = 0; i < len; i ++)
+        for(unsigned int i = 0; i < len; i ++)
         {
-            if((i % 2) == 0) irsend.mark(timings[i]);
-            else irsend.space(timings[i]);
+            if((i % 2) == 0) irsend->mark(timings[i]);
+            else irsend->space(timings[i]);
         }
 
-        irsend.space(0); // Make sure IR LED is off.
+        irsend->space(0); // Make sure IR LED is off.
         sei();
 
         sendHTTPResponse(client, "OK");
@@ -344,12 +343,45 @@ void HomeControlServer::handleEvents()
 
         if(radio)
         {
-        	HCRadioResult result = HCRadio::get_result();
-        	if(result.is_ready())
-        		event_server->println(result.get_json());
+        	HCRadioResult result;
+        	if(radio->decode(&result))
+        	{
+        		// Send json description of the result
+        		event_server->print("{\"type\": \"rf\", ");
+        		if(result.len_timings == 0)
+        			event_server->print("\"error\": \"unkown_decoding\"");
+        		else
+        		{
+        			event_server->print("\"pulse_length\": \"" + String(result.pulse_length) + "\", ");
+        			event_server->print("\"len_timings\": \"" + String(result.len_timings) + "\", ");
+        			event_server->print("\"timings\": [\"");
+        			event_server->print(result.timings[0], DEC);
+        			event_server->print("\"");
+
+        			for(unsigned int i = 0; i < result.len_timings; i ++)
+        			{
+        				event_server->print(", \"");
+        				event_server->print(result.timings[0], DEC);
+        				event_server->print("\"");
+        			}
+
+        			event_server->print("]");
+        		}
+
+        		event_server->println("}");
+        	}
+            else
+            {
+                // This is needed to properly close
+                // connections where the client has disconnected
+                // Should probably be done less often...
+                event_server->print("");
+            }
         }
     }
 }
+
+#if !defined(ARDUINO) || ARDUINO < 100
 
 // Implement new/delete ourselves since arduino does not provide them
 void* operator new(size_t size)
@@ -361,3 +393,5 @@ void operator delete(void * ptr)
 {
 	free(ptr);
 }
+
+#endif

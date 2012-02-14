@@ -1,5 +1,5 @@
 #define MAC_ADDRESS         0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
-#define IP_ADDRESS          192, 168, 1, 200
+#define IP_ADDRESS          192, 168, 1, 123
 #define COMMAND_SERVER_PORT 80
 #define EVENT_SERVER_PORT   8080
 
@@ -13,6 +13,9 @@
 #include <Ethernet.h>
 #include <HomeControl.h>
 #include <IRremote.h>
+#include <HCRadio.h>
+
+#include <MemoryFree.h>
 
 // Global objects
 byte mac[] = { MAC_ADDRESS };
@@ -22,25 +25,40 @@ IPAddress ip(IP_ADDRESS);
 byte ip[] = { IP_ADDRESS };
 #endif
 HomeControlServer hcs;
+//unsigned long time;
 
 // Initialization
 void setup()
 {
+	Serial.begin(9600);
+//	time = millis();
+
     hcs.enableIRIn(IR_RECV_PIN);
     hcs.enableIROut();
-    hcs.enableRFOut(RF_SEND_PIN);
+    hcs.enableRFOut(RF_SEND_PIN, 9);
+    hcs.enableRFIn();
 
-    hcs.enableDigitalOut(6);
-    hcs.enableDigitalOut(9);
-    hcs.enableDigitalIn(8);
+//    hcs.enableDigitalOut(6);
+//    hcs.enableDigitalOut(9);
+//    hcs.enableDigitalIn(8);
 
     Ethernet.begin(mac, ip);
     hcs.startCommandServer(COMMAND_SERVER_PORT);
     hcs.startEventServer(EVENT_SERVER_PORT);
 }
 
+
 void loop()
 {
+	// Print free memory
+//	if(millis() - time > 1000)
+//	{
+//		time = millis();
+//		Serial.print("memory: ");
+//		Serial.print(freeMemory());
+//		Serial.println(" bytes left.");
+//	}
+
     hcs.handleRequests();
     hcs.handleEvents();
 }

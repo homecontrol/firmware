@@ -7,12 +7,12 @@
 #include "../HCRadio/HCRadio.h"
 #include "HCHTTPRequest.h"
 
+#define IR_DEFAULT_KHZ 38
+
 #if !defined(ARDUINO) || ARDUINO < 100
 #define EthernetClient Client
 #define EthernetServer Server
 #endif
-
-#define IR_DEFAULT_KHZ 38
 
 class HomeControlServer
 {
@@ -46,10 +46,10 @@ class HomeControlServer
 
         bool handleHTTPRequest(EthernetClient& client);
 
-        unsigned int explode(char* data, 
-                             unsigned int* timings, 
+        unsigned int explode(char* data,
+                             unsigned int* timings,
                              unsigned int max_len,
-                             char delimiter = '.')
+                             char delimiter = '.');
 
         EthernetServer* command_server;
         EthernetServer* event_server;
@@ -59,7 +59,10 @@ class HomeControlServer
         int             rf_out_pin;
 };
 
+#if !defined(ARDUINO) || ARDUINO < 100
+
 void * operator new(size_t size);
 void operator delete(void * ptr);
 
+#endif
 #endif
