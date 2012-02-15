@@ -49,7 +49,7 @@ void HomeControlServer::enableRFOut(int send_pin, int status_pin)
 	if(!radio)
 		radio = new HCRadio();
 
-	radio->enable_send(send_pin, RF_SEND_REPEAT, RF_DEFAULT_PULSE_LENGTH);
+	radio->enable_send(send_pin, RF_DEFAULT_SEND_REPEAT, RF_DEFAULT_PULSE_WIDTH);
 
 	if(status_pin != -1)
 		radio->enable_status(status_pin);
@@ -101,7 +101,7 @@ bool HomeControlServer::handleIRNECRequest(EthernetClient& client, HCHTTPRequest
 }
 
 unsigned int HomeControlServer::explode(char* data,
-                                        unsigned int* timings,
+                                        unsigned long* timings,
                                         unsigned int max_len,
                                         char delimiter)
 {
@@ -144,7 +144,7 @@ bool HomeControlServer::handleIRRawRequest(EthernetClient& client, HCHTTPRequest
 
     if (req.path[1])
     {
-        unsigned int timings[RAWBUF];
+        unsigned long timings[RAWBUF];
         unsigned int len = explode(req.path[1], timings, RAWBUF);
 
         cli();
@@ -234,7 +234,7 @@ bool HomeControlServer::handleRFTristateRequest(EthernetClient& client, HCHTTPRe
 
 	// Set pulse length if given
 	if(req.path[2]) radio->set_pulse_length(atoi(req.path[2]));
-    else radio->set_pulse_length(RF_DEFAULT_PULSE_LENGTH);
+    else radio->set_pulse_length(RF_DEFAULT_PULSE_WIDTH);
 
     // Set number of repeats if given
     if(req.path[3]) radio->set_send_repeat(atoi(req.path[3]));
@@ -339,42 +339,42 @@ void HomeControlServer::handleEvents()
     {
         if (irrecv)
         {
-            decode_results results;
-            if (irrecv->decode(&results))
+            decode_results result;
+            if (irrecv->decode(&result))
             {
                 do
                 {
                     event_server->print("{\"type\": \"ir\", ");
                     event_server->print("\"decoding\": ");
-                    if (results.decode_type == NEC)
+                    if (result.decode_type == NEC)
                         event_server->print("\"nec\", ");
-                    else if (results.decode_type == SONY)
+                    else if (result.decode_type == SONY)
                         event_server->print("\"sony\", ");
-                    else if (results.decode_type == RC5)
+                    else if (result.decode_type == RC5)
                         event_server->print("\"rc5\", ");
-                    else if (results.decode_type == RC6)
+                    else if (result.decode_type == RC6)
                         event_server->print("\"rc6\", ");
                     else
                         event_server->print("\"raw\", ");
 
                     event_server->print("\"hex\": \"");
-                    event_server->print(results.value, HEX);
+                    event_server->print(result.value, HEX);
                     event_server->print("\", ");
                     event_server->print("\"dec\": \"");
-                    event_server->print(results.bits, DEC);
+                    event_server->print(result.bits, DEC);
                     event_server->print("\", ");
 
                     // Drop the first value, since this is the gap to the previous signal!
-                    if(result->rawlen > 1)
+                    if(result.rawlen > 1)
                     {
                         event_server->print("\"timings\": [\"");
                         event_server->print(result.rawbuf[1] * USECPERTICK - MARK_EXCESS, DEC); // Mark.
                         event_server->print("\"");
-                        for(unsigned int i = 2; i < result->rawlen; i ++)
+                        for(unsigned int i = 2; i < result.rawlen; i ++)
                         {
                             unsigned int duration = 0;
-                            if((i % 2) == 1) duration = results->rawbuf[i] * USECPERTICK - MARK_EXCESS; // Mark
-                            else duration = results->rawbuf[i] * USECPERTICK + MARK_EXCESS; // Space
+                            if((i % 2) == 1) duration = result.rawbuf[i] * USECPERTICK - MARK_EXCESS; // Mark
+                            else duration = result.rawbuf[i] * USECPERTICK + MARK_EXCESS; // Space
 
                             event_server->print(", \"");
                             event_server->print(duration, DEC);
@@ -387,7 +387,7 @@ void HomeControlServer::handleEvents()
 
                     irrecv->resume(); // Receive the next value
                 }
-                while (irrecv->decode(&results));
+                while (irrecv->decode(&result));
             }
             else
             {

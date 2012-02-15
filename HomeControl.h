@@ -11,7 +11,7 @@
 
 #define RF_DEFAULT_PULSE_WIDTH 433
 #define RF_RECEIVER_IRQ 0
-#define RF_SEND_REPEAT 10
+#define RF_DEFAULT_SEND_REPEAT 10
 
 #if !defined(ARDUINO) || ARDUINO < 100
 #define EthernetClient Client
@@ -52,7 +52,7 @@ class HomeControlServer
         bool handleHTTPRequest(EthernetClient& client);
 
         unsigned int explode(char* data,
-                             unsigned int* timings,
+                             unsigned long* timings,
                              unsigned int max_len,
                              char delimiter = '.');
 
