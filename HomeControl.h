@@ -9,6 +9,10 @@
 
 #define IR_DEFAULT_KHZ 38
 
+#define RF_DEFAULT_PULSE_WIDTH 433
+#define RF_RECEIVER_IRQ 0
+#define RF_SEND_REPEAT 10
+
 #if !defined(ARDUINO) || ARDUINO < 100
 #define EthernetClient Client
 #define EthernetServer Server
@@ -39,7 +43,8 @@ class HomeControlServer
     private:
         bool handleIRRawRequest     (EthernetClient& client, HCHTTPRequest& request);
         bool handleIRNECRequest     (EthernetClient& client, HCHTTPRequest& request);
-        bool handleRFBinaryRequest  (EthernetClient& client, HCHTTPRequest& request);
+        bool handleRFTristateRequest(EthernetClient& client, HCHTTPRequest& request);
+        bool handleRFRawRequest     (EthernetClient& client, HCHTTPRequest& request);
         bool handleDigitalOutRequest(EthernetClient& client, HCHTTPRequest& request);
         bool handleDigitalInRequest (EthernetClient& client, HCHTTPRequest& request);
         bool handleAnalogInRequest  (EthernetClient& client, HCHTTPRequest& request);
