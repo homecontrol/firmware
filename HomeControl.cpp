@@ -281,7 +281,7 @@ bool HomeControlServer::handleRFRawRequest(EthernetClient& client, HCHTTPRequest
     }
 
     sendHTTPResponse(client, "Usage: /rf-raw/<rawcode>[/<repeat>]\n"
-                             "Example: /fr-raw/400.500.200, starting with high pulse", true);
+                             "Example: /rf-raw/400.500.200, starting with high pulse", true);
     return false;
 }
 
@@ -301,9 +301,9 @@ bool HomeControlServer::handleHTTPRequest(EthernetClient& client)
             if (strcmp(req.path[0], "ir-nec") == 0)
                 return handleIRNECRequest(client, req);
             if (strcmp(req.path[0], "rf-tristate") == 0)
-                return handleRFRawRequest(client, req);
+                return handleRFTristateRequest(client, req);
             if (strcmp(req.path[0], "rf-raw") == 0)
-                return handleRFTristateRequest(client, req);                
+                return handleRFRawRequest(client, req);
             if (strcmp(req.path[0], "digital-out") == 0)
                 return handleDigitalOutRequest(client, req);
             if (strcmp(req.path[0], "digital-in") == 0)
@@ -360,7 +360,7 @@ void HomeControlServer::handleEvents()
                     event_server->print("\"hex\": \"");
                     event_server->print(result.value, HEX);
                     event_server->print("\", ");
-                    event_server->print("\"dec\": \"");
+                    event_server->print("\"length\": \"");
                     event_server->print(result.bits, DEC);
                     event_server->print("\", ");
 
@@ -370,7 +370,7 @@ void HomeControlServer::handleEvents()
                         event_server->print("\"timings\": [\"");
                         event_server->print(result.rawbuf[1] * USECPERTICK - MARK_EXCESS, DEC); // Mark.
                         event_server->print("\"");
-                        for(unsigned int i = 2; i < result.rawlen; i ++)
+                        for(int i = 2; i < result.rawlen; i ++)
                         {
                             unsigned int duration = 0;
                             if((i % 2) == 1) duration = result.rawbuf[i] * USECPERTICK - MARK_EXCESS; // Mark

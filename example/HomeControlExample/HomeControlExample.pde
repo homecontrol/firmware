@@ -8,6 +8,8 @@
 #define RF_SEND_PIN         7
 #define RF_RECV_PIN         2
 
+//#define DEBUG
+
 // Includes
 #include <SPI.h>
 #include <Ethernet.h>
@@ -25,13 +27,18 @@ IPAddress ip(IP_ADDRESS);
 byte ip[] = { IP_ADDRESS };
 #endif
 HomeControlServer hcs;
-//unsigned long time;
+
+#ifdef DEBUG
+unsigned long time;
+#endif
 
 // Initialization
 void setup()
 {
+	#ifdef DEBUG
 	Serial.begin(9600);
-//	time = millis();
+	time = millis();
+	#endif
 
     hcs.enableIRIn(IR_RECV_PIN);
     hcs.enableIROut();
@@ -50,14 +57,16 @@ void setup()
 
 void loop()
 {
+	#ifdef DEBUG
 	// Print free memory
-//	if(millis() - time > 1000)
-//	{
-//		time = millis();
-//		Serial.print("memory: ");
-//		Serial.print(freeMemory());
-//		Serial.println(" bytes left.");
-//	}
+	if(millis() - time > 1000)
+	{
+		time = millis();
+		Serial.print("memory: ");
+		Serial.print(freeMemory(true));
+		Serial.println(" bytes left.");
+	}
+	#endif
 
     hcs.handleRequests();
     hcs.handleEvents();
