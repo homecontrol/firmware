@@ -1,5 +1,6 @@
 #include "HCHTTPRequest.h"
 #include <string.h>
+#include <HomeControl.h>
 
 void HCHTTPRequest::parse(char* request)
 {

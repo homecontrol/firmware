@@ -8,8 +8,6 @@
 #define RF_SEND_PIN         7
 #define RF_RECV_PIN         2
 
-//#define DEBUG
-
 // Includes
 #include <SPI.h>
 #include <Ethernet.h>
@@ -26,48 +24,54 @@ IPAddress ip(IP_ADDRESS);
 #else
 byte ip[] = { IP_ADDRESS };
 #endif
+
 HomeControlServer hcs;
 
-#ifdef DEBUG
 unsigned long time;
-#endif
 
 // Initialization
 void setup()
 {
-	#ifdef DEBUG
-	Serial.begin(9600);
-	time = millis();
-	#endif
+    Serial.begin(9600);
+    memory();
+    Serial.println("initializing ...");
 
+    time = millis();
+
+    Serial.println("enable IR ...");
     hcs.enableIRIn(IR_RECV_PIN);
+    memory();
     hcs.enableIROut();
+    memory();
+    Serial.println("enable RF ...");
     hcs.enableRFOut(RF_SEND_PIN, 9);
+    memory();
     hcs.enableRFIn();
+    memory();
 
 //    hcs.enableDigitalOut(6);
 //    hcs.enableDigitalOut(9);
 //    hcs.enableDigitalIn(8);
 
+    Serial.println("enable ethernet ...");
     Ethernet.begin(mac, ip);
+    memory();
+    Serial.println("enable ethernet servers ...");
     hcs.startCommandServer(COMMAND_SERVER_PORT);
+    memory();
     hcs.startEventServer(EVENT_SERVER_PORT);
+    memory();
 }
 
+void memory()
+{
+    Serial.print("memory: ");
+    Serial.print(freeMemory());
+    Serial.println(" bytes left.");
+}
 
 void loop()
 {
-	#ifdef DEBUG
-	// Print free memory
-	if(millis() - time > 1000)
-	{
-		time = millis();
-		Serial.print("memory: ");
-		Serial.print(freeMemory(true));
-		Serial.println(" bytes left.");
-	}
-	#endif
-
     hcs.handleRequests();
     hcs.handleEvents();
 }

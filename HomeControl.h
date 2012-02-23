@@ -5,6 +5,7 @@
 // TODO: This is somwhat ugly...
 #include "../IRremote/IRremote.h"
 #include "../HCRadio/HCRadio.h"
+#include "../MemoryFree/MemoryFree.h"
 #include "HCHTTPRequest.h"
 
 #define IR_DEFAULT_KHZ 38
@@ -12,6 +13,8 @@
 #define RF_DEFAULT_PULSE_WIDTH 433
 #define RF_RECEIVER_IRQ 0
 #define RF_DEFAULT_SEND_REPEAT 10
+
+#define MAX_REQUEST_SIZE  612
 
 #if !defined(ARDUINO) || ARDUINO < 100
 #define EthernetClient Client
@@ -41,6 +44,8 @@ class HomeControlServer
         void handleEvents();
 
     private:
+
+        bool handleMemoryRequest    (EthernetClient& client, HCHTTPRequest& request);
         bool handleIRRawRequest     (EthernetClient& client, HCHTTPRequest& request);
         bool handleIRNECRequest     (EthernetClient& client, HCHTTPRequest& request);
         bool handleRFTristateRequest(EthernetClient& client, HCHTTPRequest& request);
@@ -51,17 +56,12 @@ class HomeControlServer
 
         bool handleHTTPRequest(EthernetClient& client);
 
-        unsigned int explode(char* data,
-                             unsigned long* timings,
-                             unsigned int max_len,
-                             char delimiter = '.');
-
         EthernetServer* command_server;
         EthernetServer* event_server;
         IRsend*         irsend;
         IRrecv*         irrecv;
         HCRadio*		radio;
-        int             rf_out_pin;
+
 };
 
 #if !defined(ARDUINO) || ARDUINO < 100
