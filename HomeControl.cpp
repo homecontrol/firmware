@@ -3,7 +3,8 @@
 
 HomeControlServer::HomeControlServer()
 : command_server(NULL), event_server(NULL),
-  irsend(NULL), irrecv(NULL), radio(NULL)
+  irsend(NULL), irrecv(NULL), radio(NULL),
+  status_pin(-1), ir_status_pin(-1)
 {}
 
 HomeControlServer::~HomeControlServer()
@@ -42,15 +43,20 @@ void HomeControlServer::enableIROut()
     irsend = new IRsend();
 }
 
-void HomeControlServer::enableRFOut(int send_pin, int status_pin)
+void HomeControlServer::enableIRStatus(int pin)
+{
+    this->ir_status_pin = pin;
+
+    if(pin >= 0)
+        pinMode(pin, OUTPUT);
+}
+
+void HomeControlServer::enableRFOut(int pin)
 {
     if(!radio)
         radio = new HCRadio();
 
-    radio->enable_send(send_pin, RF_DEFAULT_SEND_REPEAT, RF_DEFAULT_PULSE_WIDTH);
-
-    if(status_pin != -1)
-        radio->enable_status(status_pin);
+    radio->enable_send(pin, RF_DEFAULT_SEND_REPEAT, RF_DEFAULT_PULSE_WIDTH);
 }
 
 void HomeControlServer::enableRFIn()
@@ -63,6 +69,14 @@ void HomeControlServer::enableRFIn()
     radio->enable_receive(RF_RECEIVER_IRQ);
 }
 
+void HomeControlServer::enableRFStatus(int pin)
+{
+    if(!this->radio)
+        return;
+
+    this->radio->enable_status(pin);
+}
+
 void HomeControlServer::enableDigitalOut(int pin)
 {
     // TODO: Maybe we should remember the output pins and check the commands
@@ -71,15 +85,18 @@ void HomeControlServer::enableDigitalOut(int pin)
     digitalWrite(pin, LOW);
 }
 
+
 void HomeControlServer::enableDigitalIn(int pin)
 {
     pinMode(pin, INPUT);
 }
 
+
 void HomeControlServer::enableAnalogIn(int pin)
 {
     // TODO
 }
+
 
 bool HomeControlServer::handleMemoryRequest(EthernetClient& client, HCHTTPRequest& req)
 {
@@ -91,13 +108,22 @@ bool HomeControlServer::handleMemoryRequest(EthernetClient& client, HCHTTPReques
     return false;
 }
 
+
 bool HomeControlServer::handleIRNECRequest(EthernetClient& client, HCHTTPRequest& req)
 {
     if (req.path[1] && req.path[2] && !req.path[3])
     {
         long bitstring = atol(req.path[1]);
         int nbits = atoi(req.path[2]);
+
+        if(this->ir_status_pin >= 0)
+            digitalWrite(this->ir_status_pin, HIGH);
+
         irsend->sendNEC(bitstring, nbits);
+
+        if(this->ir_status_pin >= 0)
+            digitalWrite(this->ir_status_pin, LOW);
+
         if (irrecv)
             irrecv->enableIRIn();
         sendHTTPResponseOK(client);
@@ -107,6 +133,7 @@ bool HomeControlServer::handleIRNECRequest(EthernetClient& client, HCHTTPRequest
     sendHTTPResponse_P(client, PSTR("Usage: /ir-nec/<bistring>/<nbits>"), true);
     return false;
 }
+
 
 bool HomeControlServer::handleIRRawRequest(EthernetClient& client, HCHTTPRequest& req)
 {
@@ -126,6 +153,9 @@ bool HomeControlServer::handleIRRawRequest(EthernetClient& client, HCHTTPRequest
 
         cli();
         noInterrupts();
+
+        if(this->ir_status_pin >= 0)
+            digitalWrite(this->ir_status_pin, HIGH);
 
         while(true)
         {
@@ -155,6 +185,9 @@ bool HomeControlServer::handleIRRawRequest(EthernetClient& client, HCHTTPRequest
         }
         irsend->space(0); // Make sure IR LED is off.
 
+        if(this->ir_status_pin >= 0)
+            digitalWrite(this->ir_status_pin, LOW);
+
         sei();
         interrupts();
 
@@ -176,6 +209,7 @@ bool HomeControlServer::handleIRRawRequest(EthernetClient& client, HCHTTPRequest
 
     return false;
 }
+
 
 bool HomeControlServer::handleDigitalOutRequest(EthernetClient& client, HCHTTPRequest& req)
 {
@@ -203,6 +237,7 @@ bool HomeControlServer::handleDigitalOutRequest(EthernetClient& client, HCHTTPRe
     return false;
 }
 
+
 bool HomeControlServer::handleDigitalInRequest(EthernetClient& client, HCHTTPRequest& req)
 {
     if (req.path[1] && !req.path[2])
@@ -218,6 +253,7 @@ bool HomeControlServer::handleDigitalInRequest(EthernetClient& client, HCHTTPReq
     sendHTTPResponse_P(client, PSTR("Usage: /digital-in/<pin>"));
     return false;
 }
+
 
 bool HomeControlServer::handleAnalogInRequest(EthernetClient& client, HCHTTPRequest& req)
 {
@@ -235,6 +271,7 @@ bool HomeControlServer::handleAnalogInRequest(EthernetClient& client, HCHTTPRequ
     sendHTTPResponse_P(client, PSTR("Usage: /analog-in/<pin>"), true);
     return false;
 }
+
 
 bool HomeControlServer::handleRFTristateRequest(EthernetClient& client, HCHTTPRequest& req)
 {
@@ -272,6 +309,7 @@ bool HomeControlServer::handleRFTristateRequest(EthernetClient& client, HCHTTPRe
     return false;
 }
 
+
 bool HomeControlServer::handleRFRawRequest(EthernetClient& client, HCHTTPRequest& req)
 {
     if(!radio)
@@ -301,6 +339,7 @@ bool HomeControlServer::handleRFRawRequest(EthernetClient& client, HCHTTPRequest
     return false;
 }
 
+
 bool HomeControlServer::handleHTTPRequest(EthernetClient& client)
 {
     char buffer[MAX_REQUEST_SIZE];
@@ -312,23 +351,32 @@ bool HomeControlServer::handleHTTPRequest(EthernetClient& client)
 
         if (req.path[0])
         {
+            if(this->status_pin >= 0)
+                digitalWrite(this->status_pin, LOW);
+
+            bool retval = false;
+
             if (strcmp(req.path[0], "mem") == 0)
-                return handleMemoryRequest(client, req);
-            if (strcmp(req.path[0], "ir-raw") == 0)
-                return handleIRRawRequest(client, req);
-            if (strcmp(req.path[0], "ir-nec") == 0)
-                return handleIRNECRequest(client, req);
-            if (strcmp(req.path[0], "rf-tristate") == 0)
-                return handleRFTristateRequest(client, req);
-            if (strcmp(req.path[0], "rf-raw") == 0)
-                return handleRFRawRequest(client, req);
-            if (strcmp(req.path[0], "digital-out") == 0)
-                return handleDigitalOutRequest(client, req);
-            if (strcmp(req.path[0], "digital-in") == 0)
-                return handleDigitalInRequest(client, req);
-            if (strcmp(req.path[0], "analog-in") == 0)
-                return handleAnalogInRequest(client, req);
-            return true;
+                retval = handleMemoryRequest(client, req);
+            else if (strcmp(req.path[0], "ir-raw") == 0)
+                retval = handleIRRawRequest(client, req);
+            else if (strcmp(req.path[0], "ir-nec") == 0)
+                retval = handleIRNECRequest(client, req);
+            else if (strcmp(req.path[0], "rf-tristate") == 0)
+                retval = handleRFTristateRequest(client, req);
+            else if (strcmp(req.path[0], "rf-raw") == 0)
+                retval = handleRFRawRequest(client, req);
+            else if (strcmp(req.path[0], "digital-out") == 0)
+                retval = handleDigitalOutRequest(client, req);
+            else if (strcmp(req.path[0], "digital-in") == 0)
+                retval = handleDigitalInRequest(client, req);
+            else if (strcmp(req.path[0], "analog-in") == 0)
+                retval = handleAnalogInRequest(client, req);
+
+            if(this->status_pin >= 0)
+                digitalWrite(this->status_pin, HIGH);
+
+            return retval;
         }
 
     }
@@ -336,6 +384,7 @@ bool HomeControlServer::handleHTTPRequest(EthernetClient& client)
     sendHTTPResponse_P(client, PSTR("Invalid request"), true);
     return false;
 }
+
 
 void HomeControlServer::handleRequests()
 {
@@ -351,10 +400,14 @@ void HomeControlServer::handleRequests()
     }
 }
 
+
 void HomeControlServer::handleEvents()
 {
     if (event_server)
     {
+        if(this->status_pin >= 0)
+            digitalWrite(this->status_pin, HIGH);
+
         if (irrecv)
         {
             decode_results result;
@@ -362,7 +415,8 @@ void HomeControlServer::handleEvents()
             {
                 do
                 {
-                    // TODO: Introduce PSTR to free some more memory.
+                    if(this->ir_status_pin >= 0)
+                        digitalWrite(this->ir_status_pin, HIGH);
 
                     write_P(*event_server, PSTR("{\"type\": \"ir\", "));
                     write_P(*event_server, PSTR("\"decoding\": "));
@@ -404,6 +458,9 @@ void HomeControlServer::handleEvents()
                     }
 
                     writeln_P(*event_server, PSTR("}"));
+
+                    if(this->ir_status_pin >= 0)
+                        digitalWrite(this->ir_status_pin, LOW);
 
                     irrecv->resume(); // Receive the next value
                 }
@@ -464,6 +521,14 @@ void HomeControlServer::handleEvents()
             }
         }
     }
+}
+
+void HomeControlServer::enableStatus(int pin)
+{
+    this->status_pin = pin;
+
+    if(this->status_pin >= 0)
+        pinMode(this->status_pin, OUTPUT);
 }
 
 #if !defined(ARDUINO) || ARDUINO < 100

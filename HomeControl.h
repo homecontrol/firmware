@@ -32,9 +32,11 @@ class HomeControlServer
 
         void enableIRIn(int pin);
         void enableIROut(/* pin == 3 */);
+        void enableIRStatus(int pin);
 
-        void enableRFOut(int send_pin, int status_pin = -1);
-        void enableRFIn();
+        void enableRFIn(/* pin == 2 */);
+        void enableRFOut(int pin);
+        void enableRFStatus(int pin);
 
         void enableDigitalOut(int pin);
         void enableDigitalIn(int pin);
@@ -42,6 +44,7 @@ class HomeControlServer
 
         void handleRequests();
         void handleEvents();
+        void enableStatus(int pin);
 
     private:
 
@@ -60,7 +63,10 @@ class HomeControlServer
         EthernetServer* event_server;
         IRsend*         irsend;
         IRrecv*         irrecv;
-        HCRadio*		radio;
+        HCRadio*        radio;
+
+        int             status_pin;
+        int             ir_status_pin;
 
 };
 
