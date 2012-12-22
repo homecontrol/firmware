@@ -2,11 +2,10 @@
 #define HOMECONTROL_H_
 
 #include <Ethernet.h>
-// TODO: This is somwhat ugly...
-#include "../IRremote/IRremote.h"
-#include "../HCRadio/HCRadio.h"
-#include "../MemoryFree/MemoryFree.h"
-#include "HCHTTPRequest.h"
+#include <infrared/IRremote.h>
+#include <radio/HCRadio.h>
+#include <memory/memory.h>
+#include "http_request.h"
 
 #define IR_DEFAULT_KHZ 38
 

@@ -8,13 +8,12 @@
 #define RF_SEND_PIN         7
 #define RF_RECV_PIN         2
 
-// Includes
 #include <SPI.h>
 #include <Ethernet.h>
-#include <HomeControl.h>
-#include <IRremote.h>
-#include <HCRadio.h>
-#include <MemoryFree.h>
+#include <infrared/IRremote.h>
+#include <radio/HCRadio.h>
+#include <memory/memory.h>
+#include "server.h"
 
 // Global objects
 byte mac[] = { MAC_ADDRESS };

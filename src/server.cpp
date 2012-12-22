@@ -1,5 +1,5 @@
-#include "HomeControl.h"
-#include "HCTCPUtils.h"
+#include "server.h"
+#include "tcp_utils.h"
 
 HomeControlServer::HomeControlServer()
 : command_server(NULL), event_server(NULL),
