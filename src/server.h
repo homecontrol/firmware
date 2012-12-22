@@ -4,7 +4,7 @@
 #include <Ethernet.h>
 #include <infrared/IRremote.h>
 #include <radio/HCRadio.h>
-#include <memory/memory.h>
+#include "memory.h"
 #include "http_request.h"
 
 #define IR_DEFAULT_KHZ 38

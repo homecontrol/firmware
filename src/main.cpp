@@ -1,5 +1,5 @@
 #define MAC_ADDRESS         0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
-#define IP_ADDRESS          192, 168, 1, 123
+//#define IP_ADDRESS          192, 168, 1, 123
 #define COMMAND_SERVER_PORT 80
 #define EVENT_SERVER_PORT   8080
 
@@ -12,38 +12,40 @@
 #include <Ethernet.h>
 #include <infrared/IRremote.h>
 #include <radio/HCRadio.h>
-#include <memory/memory.h>
+#include "memory.h"
 #include "server.h"
 
-// Global objects
 byte mac[] = { MAC_ADDRESS };
+
+#ifdef IP_ADDRESS
 #if defined(ARDUINO) && ARDUINO >= 100
 IPAddress ip(IP_ADDRESS);
 #else
 byte ip[] = { IP_ADDRESS };
 #endif
+#endif
 
 HomeControlServer hcs;
 
-// Initialization
 void setup()
 {
     hcs.enableIRIn(IR_RECV_PIN);
     hcs.enableIROut();
-    hcs.enableIRStatus(8);
+    hcs.enableIRStatus(9);
 
     hcs.enableRFOut(RF_SEND_PIN);
     hcs.enableRFIn();
     hcs.enableRFStatus(6);
 
-//    hcs.enableDigitalOut(6);
-//    hcs.enableDigitalOut(9);
-//    hcs.enableDigitalIn(8);
-
+    #ifdef IP_ADDRESS
     Ethernet.begin(mac, ip);
+    #else
+    Ethernet.begin(mac);
+    #endif
+
     hcs.startCommandServer(COMMAND_SERVER_PORT);
     hcs.startEventServer(EVENT_SERVER_PORT);
-    hcs.enableStatus(9);
+    hcs.enableStatus(8);
 }
 
 void loop()
@@ -51,5 +53,3 @@ void loop()
     hcs.handleRequests();
     hcs.handleEvents();
 }
-
-// vim: ft=cpp
