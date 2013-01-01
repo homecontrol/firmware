@@ -1,3 +1,6 @@
+[submodule "ext/infrared"]
+    path = ext/infrared
+    url = git@github.com:homecontrol/Arduino-IRremote.git
 [submodule "ext/radio"]
 	path = ext/radio
 	url = git@github.com:homecontrol/Arduino-HCRadio.git
