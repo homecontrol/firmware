@@ -59,14 +59,12 @@ void HomeControlServer::enableRFOut(int pin)
     radio->enable_send(pin, RF_DEFAULT_SEND_REPEAT, RF_DEFAULT_PULSE_WIDTH);
 }
 
-void HomeControlServer::enableRFIn()
+void HomeControlServer::enableRFIn(int irq)
 {
     if(!radio)
         radio = new HCRadio();
-
-    // Interrupt 0 is attached to PIN 2,
-    // see http://arduino.cc/it/Reference/AttachInterrupt
-    radio->enable_receive(RF_RECEIVER_IRQ);
+    
+    radio->enable_receive(irq);
 }
 
 void HomeControlServer::enableRFStatus(int pin)

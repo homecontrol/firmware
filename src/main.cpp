@@ -3,11 +3,6 @@
 #define COMMAND_SERVER_PORT 80
 #define EVENT_SERVER_PORT   8080
 
-#define IR_SEND_PIN         3
-#define IR_RECV_PIN         5
-#define RF_SEND_PIN         7
-#define RF_RECV_PIN         2
-
 #include <SPI.h>
 #include <Ethernet.h>
 #include <infrared/IRremote.h>
@@ -29,13 +24,13 @@ HomeControlServer hcs;
 
 void setup()
 {
-    hcs.enableIRIn(IR_RECV_PIN);
+    hcs.enableIRIn();
     hcs.enableIROut();
-    hcs.enableIRStatus(9);
+    hcs.enableIRStatus();
 
-    hcs.enableRFOut(RF_SEND_PIN);
+    hcs.enableRFOut();
     hcs.enableRFIn();
-    hcs.enableRFStatus(6);
+    hcs.enableRFStatus();
 
     #ifdef IP_ADDRESS
     Ethernet.begin(mac, ip);

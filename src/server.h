@@ -8,12 +8,16 @@
 #include "http_request.h"
 
 #define IR_DEFAULT_KHZ 38
+#define IR_RECV_PIN 5
+#define IR_STAT_PIN 9
 
 #define RF_DEFAULT_PULSE_WIDTH 433
-#define RF_RECEIVER_IRQ 0
+#define RF_RECV_IRQ 0 // PIN 2, see http://arduino.cc/it/Reference/AttachInterrupt
+#define RF_SEND_PIN 7
+#define RF_STAT_PIN 6
 #define RF_DEFAULT_SEND_REPEAT 10
 
-#define MAX_REQUEST_SIZE  612
+#define MAX_REQUEST_SIZE 612
 
 #if !defined(ARDUINO) || ARDUINO < 100
 #define EthernetClient Client
@@ -29,13 +33,15 @@ class HomeControlServer
         void startCommandServer(int port);
         void startEventServer(int port);
 
-        void enableIRIn(int pin);
-        void enableIROut(/* pin == 3 */);
-        void enableIRStatus(int pin);
+        // IR receiver must be attached to the PWM pin which depends 
+        // on the board, see TIMER_PWM_PIN in ext/infrared/IRremoteInt.h.
+        void enableIRIn();
+        void enableIROut(int pin = IR_SEND_PIN);
+        void enableIRStatus(int pin = IR_STAT_PIN);
 
-        void enableRFIn(/* pin == 2 */);
-        void enableRFOut(int pin);
-        void enableRFStatus(int pin);
+        void enableRFIn(int irq = RF_RECV_IRQ);
+        void enableRFOut(int pin = RF_SEND_PIN);
+        void enableRFStatus(int pin = RF_STAT_PIN);
 
         void enableDigitalOut(int pin);
         void enableDigitalIn(int pin);
