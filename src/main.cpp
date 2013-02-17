@@ -1,12 +1,10 @@
-#define MAC_ADDRESS         0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
+#define MAC_ADDRESS         0x90, 0xA2, 0xDA, 0x00, 0xF0, 0x5F
 //#define IP_ADDRESS          192, 168, 1, 123
 #define COMMAND_SERVER_PORT 80
 #define EVENT_SERVER_PORT   8080
 
 #include <SPI.h>
 #include <Ethernet.h>
-#include <infrared/IRremote.h>
-#include <radio/HCRadio.h>
 #include "memory.h"
 #include "server.h"
 

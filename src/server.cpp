@@ -4,7 +4,7 @@
 HomeControlServer::HomeControlServer()
 : command_server(NULL), event_server(NULL),
   irsend(NULL), irrecv(NULL), radio(NULL),
-  status_pin(-1), ir_status_pin(-1)
+  status_pin(-1), ir_status_pin(-1), rf_status_pin(-1), rf_send_pin(-1)
 {}
 
 HomeControlServer::~HomeControlServer()
@@ -53,26 +53,23 @@ void HomeControlServer::enableIRStatus(int pin)
 
 void HomeControlServer::enableRFOut(int pin)
 {
-    if(!radio)
-        radio = new HCRadio();
+    if(!radio) radio = new RCSwitch();
 
-    radio->enable_send(pin, RF_DEFAULT_SEND_REPEAT, RF_DEFAULT_PULSE_WIDTH);
+    rf_send_pin = pin;
+    radio->enableTransmit(pin);
+    radio->setPulseLength(RF_DEFAULT_PULSE_WIDTH);
+    radio->setRepeatTransmit(RF_DEFAULT_SEND_REPEAT);
 }
 
 void HomeControlServer::enableRFIn(int irq)
 {
-    if(!radio)
-        radio = new HCRadio();
-    
-    radio->enable_receive(irq);
+    if(!radio) radio = new RCSwitch();
+    radio->enableReceive(irq);
 }
 
 void HomeControlServer::enableRFStatus(int pin)
 {
-    if(!this->radio)
-        return;
-
-    this->radio->enable_status(pin);
+    rf_status_pin = pin;
 }
 
 void HomeControlServer::enableDigitalOut(int pin)
@@ -83,18 +80,15 @@ void HomeControlServer::enableDigitalOut(int pin)
     digitalWrite(pin, LOW);
 }
 
-
 void HomeControlServer::enableDigitalIn(int pin)
 {
     pinMode(pin, INPUT);
 }
 
-
 void HomeControlServer::enableAnalogIn(int pin)
 {
     // TODO
 }
-
 
 bool HomeControlServer::handleMemoryRequest(EthernetClient& client, HCHTTPRequest& req)
 {
@@ -105,7 +99,6 @@ bool HomeControlServer::handleMemoryRequest(EthernetClient& client, HCHTTPReques
 
     return false;
 }
-
 
 bool HomeControlServer::handleIRNECRequest(EthernetClient& client, HCHTTPRequest& req)
 {
@@ -131,7 +124,6 @@ bool HomeControlServer::handleIRNECRequest(EthernetClient& client, HCHTTPRequest
     sendHTTPResponse_P(client, PSTR("Usage: /ir-nec/<bistring>/<nbits>"), true);
     return false;
 }
-
 
 bool HomeControlServer::handleIRRawRequest(EthernetClient& client, HCHTTPRequest& req)
 {
@@ -208,7 +200,6 @@ bool HomeControlServer::handleIRRawRequest(EthernetClient& client, HCHTTPRequest
     return false;
 }
 
-
 bool HomeControlServer::handleDigitalOutRequest(EthernetClient& client, HCHTTPRequest& req)
 {
     if (req.path[1] && req.path[2] && req.path[3] && !req.path[4])
@@ -235,7 +226,6 @@ bool HomeControlServer::handleDigitalOutRequest(EthernetClient& client, HCHTTPRe
     return false;
 }
 
-
 bool HomeControlServer::handleDigitalInRequest(EthernetClient& client, HCHTTPRequest& req)
 {
     if (req.path[1] && !req.path[2])
@@ -251,7 +241,6 @@ bool HomeControlServer::handleDigitalInRequest(EthernetClient& client, HCHTTPReq
     sendHTTPResponse_P(client, PSTR("Usage: /digital-in/<pin>"));
     return false;
 }
-
 
 bool HomeControlServer::handleAnalogInRequest(EthernetClient& client, HCHTTPRequest& req)
 {
@@ -270,7 +259,6 @@ bool HomeControlServer::handleAnalogInRequest(EthernetClient& client, HCHTTPRequ
     return false;
 }
 
-
 bool HomeControlServer::handleRFTristateRequest(EthernetClient& client, HCHTTPRequest& req)
 {
     if(!radio)
@@ -280,33 +268,24 @@ bool HomeControlServer::handleRFTristateRequest(EthernetClient& client, HCHTTPRe
     }
 
     // Set pulse length if given
-    if(req.path[2]) radio->set_pulse_length(atoi(req.path[2]));
-    else radio->set_pulse_length(RF_DEFAULT_PULSE_WIDTH);
+    if(req.path[2]) radio->setPulseLength(atoi(req.path[2]));
+    else radio->setPulseLength(RF_DEFAULT_PULSE_WIDTH);
 
     // Set number of repeats if given
-    if(req.path[3]) radio->set_send_repeat(atoi(req.path[3]));
-    else radio->set_send_repeat(RF_DEFAULT_SEND_REPEAT);
+    if(req.path[3]) radio->setRepeatTransmit(atoi(req.path[3]));
+    else radio->setRepeatTransmit(RF_DEFAULT_SEND_REPEAT);
 
     if (req.path[1])
     {
-        if(radio->send_tristate(req.path[1]))
-        {
-            sendHTTPResponseOK(client);
-            return true;
-        }
-        else
-        {
-            sendHTTPResponse_P(client,
-                    PSTR("Invalid character: Only '0', '1', and 'F' allowed"), true);
-            return false;
-        }
+        radio->sendTriState(req.path[1]);
+        sendHTTPResponseOK(client);
+        return true;
     }
 
     sendHTTPResponse_P(client,
             PSTR("Usage: /rf-tristate/<bistring>[/<pulse length>][/<repeat>]"), true);
     return false;
 }
-
 
 bool HomeControlServer::handleRFRawRequest(EthernetClient& client, HCHTTPRequest& req)
 {
@@ -317,12 +296,15 @@ bool HomeControlServer::handleRFRawRequest(EthernetClient& client, HCHTTPRequest
     }
 
     // Set number of repeats if given
-    if(req.path[2]) radio->set_send_repeat(atoi(req.path[2]));
-    else radio->set_send_repeat(RF_DEFAULT_SEND_REPEAT);
+    if(req.path[2]) radio->setRepeatTransmit(atoi(req.path[2]));
+    else radio->setRepeatTransmit(RF_DEFAULT_SEND_REPEAT);
 
     if (req.path[1])
     {
-        if(!radio->send_raw(req.path[1]))
+        if(rf_status_pin >= 0)
+            digitalWrite(rf_status_pin, HIGH);
+
+        if(!radio->sendRaw(req.path[1]))
         {
             sendHTTPResponse_P(client, PSTR("Invalid character"), true);
             return false;
@@ -336,7 +318,6 @@ bool HomeControlServer::handleRFRawRequest(EthernetClient& client, HCHTTPRequest
             "Example: /rf-raw/400.500.200, starting with high pulse"), true);
     return false;
 }
-
 
 bool HomeControlServer::handleHTTPRequest(EthernetClient& client)
 {
@@ -383,7 +364,6 @@ bool HomeControlServer::handleHTTPRequest(EthernetClient& client)
     return false;
 }
 
-
 void HomeControlServer::handleRequests()
 {
     if (command_server)
@@ -397,7 +377,6 @@ void HomeControlServer::handleRequests()
         }
     }
 }
-
 
 void HomeControlServer::handleEvents()
 {
@@ -473,50 +452,53 @@ void HomeControlServer::handleEvents()
             }
         }
 
-        if(radio)
+        if(radio && radio->available())
         {
-            HCRadioResult result;
-            if(radio->decode(&result))
-            {
-                // Send json description of the result
-                write_P(*event_server, PSTR("{\"type\": \"rf\", "));
-                if(result.len_timings == 0)
-                    write_P(*event_server, PSTR("\"error\": \"unkown_decoding\""));
-                else
-                {
-                    write_P(*event_server, PSTR("\"pulse_length\": \""));
-                    event_server->print(result.pulse_length);
-                    write_P(*event_server, PSTR("\", "));
-                    write_P(*event_server, PSTR("\"len_timings\": \""));
-                    event_server->print(result.len_timings);
-                    write_P(*event_server, PSTR("\", "));
-                    write_P(*event_server, PSTR("\"timings\": [\""));
+            if(rf_status_pin >= 0)
+                digitalWrite(rf_status_pin, HIGH);
 
-                    if(result.len_timings > 0)
-                    {
-                        event_server->print(result.timings[0], DEC);
-                        write_P(*event_server, PSTR("\""));
+            unsigned long decimal = radio->getReceivedValue();
+            unsigned int length = radio->getReceivedBitlength();
+            unsigned int delay = radio->getReceivedDelay();
+            unsigned int* raw = radio->getReceivedRawdata();
+            unsigned int protocol = radio->getReceivedProtocol();
 
-                        for(unsigned int i = 1; i < result.len_timings; i ++)
-                        {
-                            write_P(*event_server, PSTR(", \""));
-                            event_server->print(result.timings[i], DEC);
-                            write_P(*event_server, PSTR("\""));
-                        }
-                    }
 
-                    write_P(*event_server, PSTR("]"));
-                }
-
-                writeln_P(*event_server, PSTR("}"));
-            }
+            // Send json description of the result
+            write_P(*event_server, PSTR("{\"type\": \"rf\", "));
+            if(decimal == 0)
+                write_P(*event_server, PSTR("\"error\": \"unkown_decoding\""));
             else
             {
-                // This is needed to properly close
-                // connections where the client has disconnected
-                // Should probably be done less often...
-                write_P(*event_server, PSTR(""));
+                write_P(*event_server, PSTR("\"pulse_length\": \""));
+                event_server->print(delay);
+                write_P(*event_server, PSTR("\", "));
+
+                write_P(*event_server, PSTR("\"len_timings\": \""));
+                event_server->print(length);
+                write_P(*event_server, PSTR("\", "));
+
+                write_P(*event_server, PSTR("\"decimal\": \""));
+                event_server->print(decimal);
+                write_P(*event_server, PSTR("\", "));
+
+                write_P(*event_server, PSTR("\"timings\": ["));
+                for(int i = 0; i <= length * 2; i ++)
+                {
+                    if(i > 0) write_P(*event_server, PSTR(","));
+                    write_P(*event_server, PSTR("\""));
+                    event_server->print(raw[i], DEC);
+                    write_P(*event_server, PSTR("\""));
+                }
+                write_P(*event_server, PSTR("]"));
             }
+
+            writeln_P(*event_server, PSTR("}"));
+
+            if(rf_status_pin >= 0)
+                digitalWrite(rf_status_pin, LOW);
+
+            radio->resetAvailable();
         }
     }
 }

@@ -3,7 +3,8 @@
 
 #include <Ethernet.h>
 #include <infrared/IRremote.h>
-#include <radio/HCRadio.h>
+//#include <radio/HCRadio.h>
+#include <rcswitch/RCSwitch.h>
 #include "memory.h"
 #include "http_request.h"
 
@@ -33,10 +34,11 @@ class HomeControlServer
         void startCommandServer(int port);
         void startEventServer(int port);
 
-        // IR receiver must be attached to the PWM pin which depends 
+
+        void enableIRIn(int pin = IR_RECV_PIN);
+        // IR sender must be attached to the PWM pin which depends
         // on the board, see TIMER_PWM_PIN in ext/infrared/IRremoteInt.h.
-        void enableIRIn();
-        void enableIROut(int pin = IR_SEND_PIN);
+        void enableIROut();
         void enableIRStatus(int pin = IR_STAT_PIN);
 
         void enableRFIn(int irq = RF_RECV_IRQ);
@@ -68,10 +70,12 @@ class HomeControlServer
         EthernetServer* event_server;
         IRsend*         irsend;
         IRrecv*         irrecv;
-        HCRadio*        radio;
+        RCSwitch*       radio;
 
         int             status_pin;
         int             ir_status_pin;
+        int             rf_status_pin;
+        int             rf_send_pin;
 
 };
 
