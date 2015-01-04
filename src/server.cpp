@@ -45,7 +45,7 @@ void HomeControlServer::enableIROut()
 
 void HomeControlServer::enableIRStatus(int pin)
 {
-    this->ir_status_pin = pin;
+    ir_status_pin = pin;
 
     if(pin >= 0)
         pinMode(pin, OUTPUT);
@@ -70,6 +70,9 @@ void HomeControlServer::enableRFIn(int irq)
 void HomeControlServer::enableRFStatus(int pin)
 {
     rf_status_pin = pin;
+
+    if(pin >= 0)
+        pinMode(pin, OUTPUT);
 }
 
 void HomeControlServer::enableDigitalOut(int pin)
@@ -277,8 +280,15 @@ bool HomeControlServer::handleRFTristateRequest(EthernetClient& client, HCHTTPRe
 
     if (req.path[1])
     {
+        if(rf_status_pin >= 0)
+            digitalWrite(rf_status_pin, HIGH);
+
         radio->sendTriState(req.path[1]);
         sendHTTPResponseOK(client);
+
+        if(rf_status_pin >= 0)
+            digitalWrite(rf_status_pin, LOW);
+
         return true;
     }
 
@@ -299,24 +309,36 @@ bool HomeControlServer::handleRFRawRequest(EthernetClient& client, HCHTTPRequest
     if(req.path[2]) radio->setRepeatTransmit(atoi(req.path[2]));
     else radio->setRepeatTransmit(RF_DEFAULT_SEND_REPEAT);
 
+    bool retval;
     if (req.path[1])
     {
         if(rf_status_pin >= 0)
             digitalWrite(rf_status_pin, HIGH);
 
+/* TODO
         if(!radio->sendRaw(req.path[1]))
         {
             sendHTTPResponse_P(client, PSTR("Invalid character"), true);
-            return false;
+            retval = false;
         }
-
-        sendHTTPResponseOK(client);
-        return true;
+        else
+        {
+            sendHTTPResponseOK(client);
+            retval = true;
+        }
+*/
+    }
+    else
+    {
+        sendHTTPResponse_P(client, PSTR("Usage: /rf-raw/<rawcode>[/<repeat>]\n"
+                "Example: /rf-raw/400.500.200, starting with high pulse"), true);
+        retval = false;
     }
 
-    sendHTTPResponse_P(client, PSTR("Usage: /rf-raw/<rawcode>[/<repeat>]\n"
-            "Example: /rf-raw/400.500.200, starting with high pulse"), true);
-    return false;
+    if(rf_status_pin >= 0)
+        digitalWrite(rf_status_pin, LOW);
+
+    return retval;
 }
 
 bool HomeControlServer::handleHTTPRequest(EthernetClient& client)
@@ -386,7 +408,7 @@ void HomeControlServer::handleEvents()
             digitalWrite(this->status_pin, HIGH);
 
         if (irrecv)
-        {
+        {            
             decode_results result;
             if (irrecv->decode(&result))
             {
@@ -452,53 +474,62 @@ void HomeControlServer::handleEvents()
             }
         }
 
-        if(radio && radio->available())
+        if(radio)
         {
-            if(rf_status_pin >= 0)
-                digitalWrite(rf_status_pin, HIGH);
-
-            unsigned long decimal = radio->getReceivedValue();
-            unsigned int length = radio->getReceivedBitlength();
-            unsigned int delay = radio->getReceivedDelay();
-            unsigned int* raw = radio->getReceivedRawdata();
-            unsigned int protocol = radio->getReceivedProtocol();
-
-
-            // Send json description of the result
-            write_P(*event_server, PSTR("{\"type\": \"rf\", "));
-            if(decimal == 0)
-                write_P(*event_server, PSTR("\"error\": \"unkown_decoding\""));
-            else
+            if(radio->available())
             {
-                write_P(*event_server, PSTR("\"pulse_length\": \""));
-                event_server->print(delay);
-                write_P(*event_server, PSTR("\", "));
+                if(rf_status_pin >= 0)
+                    digitalWrite(rf_status_pin, HIGH);
 
-                write_P(*event_server, PSTR("\"len_timings\": \""));
-                event_server->print(length);
-                write_P(*event_server, PSTR("\", "));
+                unsigned long decimal = radio->getReceivedValue();
+                unsigned int length = radio->getReceivedBitlength();
+                unsigned int delay = radio->getReceivedDelay();
+                unsigned int* raw = radio->getReceivedRawdata();
+                unsigned int protocol = radio->getReceivedProtocol();
 
-                write_P(*event_server, PSTR("\"decimal\": \""));
-                event_server->print(decimal);
-                write_P(*event_server, PSTR("\", "));
 
-                write_P(*event_server, PSTR("\"timings\": ["));
-                for(int i = 0; i <= length * 2; i ++)
+                // Send json description of the result
+                write_P(*event_server, PSTR("{\"type\": \"rf\", "));
+                if(decimal == 0)
+                    write_P(*event_server, PSTR("\"error\": \"unkown_decoding\""));
+                else
                 {
-                    if(i > 0) write_P(*event_server, PSTR(","));
-                    write_P(*event_server, PSTR("\""));
-                    event_server->print(raw[i], DEC);
-                    write_P(*event_server, PSTR("\""));
+                    write_P(*event_server, PSTR("\"pulse_length\": \""));
+                    event_server->print(delay);
+                    write_P(*event_server, PSTR("\", "));
+
+                    write_P(*event_server, PSTR("\"len_timings\": \""));
+                    event_server->print(length);
+                    write_P(*event_server, PSTR("\", "));
+
+                    write_P(*event_server, PSTR("\"decimal\": \""));
+                    event_server->print(decimal);
+                    write_P(*event_server, PSTR("\", "));
+
+                    write_P(*event_server, PSTR("\"timings\": ["));
+                    for(int i = 0; i <= length * 2; i ++)
+                    {
+                        if(i > 0) write_P(*event_server, PSTR(","));
+                        write_P(*event_server, PSTR("\""));
+                        event_server->print(raw[i], DEC);
+                        write_P(*event_server, PSTR("\""));
+
+                        //Serial.print(raw[i], DEC);
+                        //Serial.println("");
+                    }
+                    //Serial.println("");
+                    //Serial.println("");
+
+                    write_P(*event_server, PSTR("]"));
                 }
-                write_P(*event_server, PSTR("]"));
+
+                writeln_P(*event_server, PSTR("}"));
+
+                if(rf_status_pin >= 0)
+                    digitalWrite(rf_status_pin, LOW);
+
+                radio->resetAvailable();
             }
-
-            writeln_P(*event_server, PSTR("}"));
-
-            if(rf_status_pin >= 0)
-                digitalWrite(rf_status_pin, LOW);
-
-            radio->resetAvailable();
         }
     }
 }

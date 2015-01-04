@@ -9,13 +9,13 @@
 #include "http_request.h"
 
 #define IR_DEFAULT_KHZ 38
-#define IR_RECV_PIN 5
-#define IR_STAT_PIN 9
+#define IR_RECV_PIN 1
+#define IR_STAT_PIN 4
 
 #define RF_DEFAULT_PULSE_WIDTH 433
 #define RF_RECV_IRQ 0 // PIN 2, see http://arduino.cc/it/Reference/AttachInterrupt
-#define RF_SEND_PIN 7
-#define RF_STAT_PIN 6
+#define RF_SEND_PIN 6
+#define RF_STAT_PIN 3
 #define RF_DEFAULT_SEND_REPEAT 10
 
 #define MAX_REQUEST_SIZE 612

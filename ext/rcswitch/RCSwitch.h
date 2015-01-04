@@ -1,6 +1,6 @@
 /*
   RCSwitch - Arduino libary for remote control outlet switches
-  Copyright (c) 2011 Suat ï¿½zgï¿½r.  All right reserved.
+  Copyright (c) 2011 Suat Özgür.  All right reserved.
 
   Contributors:
   - Andre Koehler / info(at)tomate-online(dot)de
@@ -30,8 +30,17 @@
 
 #if defined(ARDUINO) && ARDUINO >= 100
     #include "Arduino.h"
+#elif defined(ENERGIA) // LaunchPad, FraunchPad and StellarPad specific
+    #include "Energia.h"	
 #else
     #include "WProgram.h"
+#endif
+
+
+// At least for the ATTiny X4/X5, receiving has to be disabled due to
+// missing libm depencies (udivmodhi4)
+#if defined( __AVR_ATtinyX5__ ) or defined ( __AVR_ATtinyX4__ )
+#define RCSwitchDisableReceiving
 #endif
 
 // Number of maximum High/Low changes per packet.
@@ -57,13 +66,14 @@ class RCSwitch {
     void switchOff(char sFamily, int nGroup, int nDevice);
     void switchOn(char* sGroup, char* sDevice);
     void switchOff(char* sGroup, char* sDevice);
+    void switchOn(char sGroup, int nDevice);
+    void switchOff(char sGroup, int nDevice);
 
     void sendTriState(char* Code);
     void send(unsigned long Code, unsigned int length);
     void send(char* Code);
-    bool sendRaw(const char* code);
-    void send();
     
+    #if not defined( RCSwitchDisableReceiving )
     void enableReceive(int interrupt);
     void enableReceive();
     void disableReceive();
@@ -75,12 +85,15 @@ class RCSwitch {
     unsigned int getReceivedDelay();
     unsigned int getReceivedProtocol();
     unsigned int* getReceivedRawdata();
+    #endif
   
     void enableTransmit(int nTransmitterPin);
     void disableTransmit();
     void setPulseLength(int nPulseLength);
     void setRepeatTransmit(int nRepeatTransmit);
+    #if not defined( RCSwitchDisableReceiving )
     void setReceiveTolerance(int nPercent);
+    #endif
     void setProtocol(int nProtocol);
     void setProtocol(int nProtocol, int nPulseLength);
   
@@ -89,6 +102,7 @@ class RCSwitch {
     char* getCodeWordA(char* sGroup, int nSwitchNumber, boolean bStatus);
     char* getCodeWordA(char* sGroup, char* sDevice, boolean bStatus);
     char* getCodeWordC(char sFamily, int nGroup, int nDevice, boolean bStatus);
+    char* getCodeWordD(char group, int nDevice, boolean bStatus);
     void sendT0();
     void sendT1();
     void sendTF();
@@ -98,22 +112,27 @@ class RCSwitch {
     void transmit(int nHighPulses, int nLowPulses);
 
     static char* dec2binWzerofill(unsigned long dec, unsigned int length);
+    static char* dec2binWcharfill(unsigned long dec, unsigned int length, char fill);
     
+    #if not defined( RCSwitchDisableReceiving )
     static void handleInterrupt();
     static bool receiveProtocol1(unsigned int changeCount);
     static bool receiveProtocol2(unsigned int changeCount);
     static bool receiveProtocol3(unsigned int changeCount);
     int nReceiverInterrupt;
+    #endif
     int nTransmitterPin;
     int nPulseLength;
     int nRepeatTransmit;
     char nProtocol;
 
+    #if not defined( RCSwitchDisableReceiving )
     static int nReceiveTolerance;
     static unsigned long nReceivedValue;
     static unsigned int nReceivedBitlength;
     static unsigned int nReceivedDelay;
     static unsigned int nReceivedProtocol;
+    #endif
     /* 
      * timings[0] contains sync timing, followed by a number of bits
      */

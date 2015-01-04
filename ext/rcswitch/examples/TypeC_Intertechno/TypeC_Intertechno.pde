@@ -2,8 +2,6 @@
   Example for Intertechno outlets
   
   http://code.google.com/p/rc-switch/
-  
-  Need help? http://forum.ardumote.com
 */
 
 #include <RCSwitch.h>

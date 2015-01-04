@@ -2,8 +2,6 @@
   A simple RCSwitch/Ethernet/Webserver demo
   
   http://code.google.com/p/rc-switch/
-  
-  Need help? http://forum.ardumote.com
 */
 
 #include <SPI.h>
@@ -12,7 +10,7 @@
 
 // Ethernet configuration
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED }; // MAC Address
-byte ip[] = { 192,168,0, 2 };                        // IP Address
+byte ip[] = { 192,168,1,117 };                        // IP Address
 EthernetServer server(80);                           // Server Port 80
 
 // RCSwitch configuration

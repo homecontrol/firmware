@@ -2,8 +2,6 @@
   Example for outlets which are configured with two rotary/sliding switches.
   
   http://code.google.com/p/rc-switch/
-  
-  Need help? http://forum.ardumote.com
 */
 
 #include <RCSwitch.h>
